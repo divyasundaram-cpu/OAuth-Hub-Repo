@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Sparkles, HelpCircle, BookOpen, CheckCircle, Plus, Bookmark } from 'lucide-react';
+import { Search, HelpCircle, Bookmark, X, Sparkles } from 'lucide-react';
 
 interface Guide {
   id: string;
@@ -10,6 +10,7 @@ interface Guide {
   difficulty: 'Easy' | 'Moderate' | 'Hard';
   timeline: string;
   description: string;
+  details?: string[];
   isCustom?: boolean;
 }
 
@@ -20,7 +21,13 @@ const initialGuides: Guide[] = [
     category: 'Developer Tools',
     difficulty: 'Easy',
     timeline: 'Instant Approval',
-    description: 'Connect repositories and automate webhook pipelines.'
+    description: 'Connect repositories and automate webhook pipelines via official GitHub OAuth Apps.',
+    details: [
+      'Go to your GitHub profile Settings, open Developer Settings, and click OAuth Apps.',
+      'Register a new application with your homepage URL and authorization callback URL.',
+      'Generate a client secret and note down the client ID for your authentication flow.',
+      'Configure webhook subscriptions to secure token events and repository triggers.'
+    ]
   },
   {
     id: 'slack',
@@ -28,7 +35,13 @@ const initialGuides: Guide[] = [
     category: 'Communication',
     difficulty: 'Moderate',
     timeline: '2-3 Business Days',
-    description: 'Set up bot integrations and event subscriptions.'
+    description: 'Set up bot integrations and event subscriptions through the Slack API portal.',
+    details: [
+      'Navigate to api.slack.com/apps and click Create New App from scratch.',
+      'Enable Socket Mode or set a public Request URL for handling event subscriptions.',
+      'Add required bot token scopes including chat:write, channels:read, and users:read.',
+      'Install the app to your workspace and authorize OAuth tokens securely.'
+    ]
   },
   {
     id: 'google',
@@ -36,7 +49,13 @@ const initialGuides: Guide[] = [
     category: 'Productivity',
     difficulty: 'Hard',
     timeline: '1-3 Weeks',
-    description: 'Configure OAuth consent screens and domain verification.'
+    description: 'Configure OAuth consent screens and domain verification in Google Cloud Console.',
+    details: [
+      'Open the Google Cloud Console and configure your external or internal OAuth consent screen.',
+      'Add authorized domains and request necessary scopes for profile, email, and drive APIs.',
+      'Create OAuth 2.0 client IDs specifying web application redirect URIs.',
+      'Submit app verification details if requesting restricted scopes for production users.'
+    ]
   },
   {
     id: 'salesforce',
@@ -44,7 +63,13 @@ const initialGuides: Guide[] = [
     category: 'CRM & Enterprise',
     difficulty: 'Hard',
     timeline: '3-5 Business Days',
-    description: 'Connect connected apps and manage security tokens.'
+    description: 'Connect enterprise tools using Salesforce Connected Apps and OAuth settings.',
+    details: [
+      'Log into Salesforce, go to Setup, and search for App Manager under Platform Tools.',
+      'Create a New Connected App, check Enable OAuth Settings, and enter your callback URL.',
+      'Select OAuth scopes such as full access and manage user data via APIs.',
+      'Save configuration to retrieve your Consumer Key and Consumer Secret.'
+    ]
   }
 ];
 
@@ -52,14 +77,18 @@ export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [guides, setGuides] = useState<Guide[]>(initialGuides);
   const [customGenerated, setCustomGenerated] = useState<Guide | null>(null);
+  const [selectedGuide, setSelectedGuide] = useState<Guide | null>(null);
 
-  // Load saved guides from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('oauth_hub_saved_guides');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setGuides((prev) => [...prev, ...parsed]);
+        setGuides((prev) => {
+          const existingIds = new Set(prev.map(g => g.id));
+          const newGuides = parsed.filter((g: Guide) => !existingIds.has(g.id));
+          return [...prev, ...newGuides];
+        });
       } catch (e) {
         console.error('Failed to load saved guides', e);
       }
@@ -80,7 +109,6 @@ export default function Page() {
     );
 
     if (!match) {
-      // Create temporary un-saved custom guide to display below search bar
       setCustomGenerated({
         id: query.toLowerCase().replace(/\s+/g, '-'),
         name: query.trim(),
@@ -88,6 +116,12 @@ export default function Page() {
         difficulty: 'Moderate',
         timeline: '2-4 Business Days',
         description: `Custom generated connection setup for ${query.trim()}.`,
+        details: [
+          `Initiating automated crawl of official developer documentation for ${query.trim()}.`,
+          'Analyzing API endpoint structures, authentication handshakes, and token exchange protocols.',
+          'Synthesizing secure credential setup guidelines and permission scopes.',
+          'Blueprint ready for agent connection and deployment.'
+        ],
         isCustom: true
       });
     } else {
@@ -96,8 +130,8 @@ export default function Page() {
   };
 
   const handleSaveToLibrary = (guideToSave: Guide) => {
-    // Check if already in guides
-    if (guides.some((g) => g.name.toLowerCase() === guideToSave.name.toLowerCase())) {
+    if (guides.some((g) => g.id === guideToSave.id)) {
+      setSelectedGuide(guideToSave);
       setCustomGenerated(null);
       return;
     }
@@ -105,9 +139,10 @@ export default function Page() {
     const updatedGuides = [...guides, guideToSave];
     setGuides(updatedGuides);
 
-    // Save only custom guides to localStorage
     const customOnly = updatedGuides.filter((g) => g.isCustom);
     localStorage.setItem('oauth_hub_saved_guides', JSON.stringify(customOnly));
+    
+    setSelectedGuide(guideToSave);
     setCustomGenerated(null);
     setSearchQuery('');
   };
@@ -129,10 +164,10 @@ export default function Page() {
               <span>Help</span>
             </button>
           </div>
-          <p className="text-slate-600">AI-First Integration Guides & Live Generator</p>
+          <p className="text-slate-600">AI-First Integration Guides and Live Generator</p>
         </div>
 
-        {/* Search & Configuration Section */}
+        {/* Search Section */}
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Configure your agent's third-party connections</h2>
           <p className="text-sm text-slate-600">Search library guides or type any app name to generate a live setup blueprint instantly.</p>
@@ -148,21 +183,21 @@ export default function Page() {
             />
           </div>
 
-          {/* Live Generated Guide Preview (Shown directly below search bar when not in library) */}
+          {/* Live Generated Guide Preview - displayed directly below search bar */}
           {customGenerated && (
-            <div className="p-6 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-4 transition animate-fadeIn">
+            <div className="p-6 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-4 transition">
               <div className="space-y-1">
                 <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Live Generator Result</span>
                 <h3 className="text-lg font-bold text-slate-900">"{customGenerated.name}" not found in Library.</h3>
                 <p className="text-sm text-slate-600">
-                  That's totally fine. You can have our AI agent check the developer guides and build a custom setup guide instantly.
+                  That is totally fine. You can have our AI agent check the developer guides and build a custom setup guide instantly.
                 </p>
               </div>
 
               <div className="bg-white p-4 rounded-lg border border-indigo-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="space-y-1">
+                <div className="space-y-1 cursor-pointer flex-1" onClick={() => setSelectedGuide(customGenerated)}>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">{customGenerated.name}</span>
+                    <span className="font-semibold text-slate-900 hover:text-indigo-600 transition underline">{customGenerated.name}</span>
                     <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200">
                       Difficulty: {customGenerated.difficulty}
                     </span>
@@ -171,19 +206,27 @@ export default function Page() {
                   <p className="text-xs text-slate-600">{customGenerated.description}</p>
                 </div>
 
-                <button
-                  onClick={() => handleSaveToLibrary(customGenerated)}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow transition whitespace-nowrap"
-                >
-                  <Bookmark className="w-4 h-4" />
-                  <span>Save to Library</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedGuide(customGenerated)}
+                    className="px-3 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg transition"
+                  >
+                    View Guide
+                  </button>
+                  <button
+                    onClick={() => handleSaveToLibrary(customGenerated)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow transition whitespace-nowrap"
+                  >
+                    <Bookmark className="w-4 h-4" />
+                    <span>Save to Library</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Library Guides Section */}
+        {/* Library Guides */}
         <div className="space-y-4 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Library Guides</h2>
@@ -196,7 +239,8 @@ export default function Page() {
             {filteredGuides.map((guide) => (
               <div
                 key={guide.id}
-                className="p-5 border border-slate-200 rounded-xl hover:shadow-md transition bg-white flex flex-col justify-between space-y-4"
+                onClick={() => setSelectedGuide(guide)}
+                className="p-5 border border-slate-200 rounded-xl hover:shadow-md hover:border-indigo-300 cursor-pointer transition bg-white flex flex-col justify-between space-y-4"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -221,6 +265,66 @@ export default function Page() {
         </div>
 
       </div>
+
+      {/* Guide Detail Modal */}
+      {selectedGuide && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">{selectedGuide.category}</span>
+                <h3 className="text-xl font-bold text-slate-900">{selectedGuide.name} Setup Guide</h3>
+              </div>
+              <button
+                onClick={() => setSelectedGuide(null)}
+                className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200 font-medium">
+                  Difficulty: {selectedGuide.difficulty}
+                </span>
+                <span className="text-slate-600">Estimated Timeline: <strong>{selectedGuide.timeline}</strong></span>
+              </div>
+
+              <p className="text-sm text-slate-600">{selectedGuide.description}</p>
+
+              <div className="space-y-2 pt-2">
+                <h4 className="text-sm font-semibold text-slate-900">Step-by-Step Instructions:</h4>
+                <ol className="space-y-2">
+                  {selectedGuide.details?.map((step, index) => (
+                    <li key={index} className="flex items-start gap-2.5 text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      <span className="font-bold text-indigo-600">{index + 1}.</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              {selectedGuide.isCustom && !guides.some(g => g.id === selectedGuide.id) && (
+                <button
+                  onClick={() => handleSaveToLibrary(selectedGuide)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow transition"
+                >
+                  Save to Library
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedGuide(null)}
+                className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
